@@ -1,6 +1,6 @@
-# Closer Landing Page
+# Frontend
 
-Standalone Vite app extracted from `template/closer-landing-page`.
+Vite frontend for the disease RAG project.
 
 ## Run locally
 
@@ -15,7 +15,7 @@ Prerequisite: Node.js 20+
 
 ## Available scripts
 
-- `npm run dev` - start the local dev server on port `3000`
+- `npm run dev` - start the local frontend dev server on port `3000`
 - `npm run build` - build production assets into `dist/`
 - `npm run preview` - preview the production build on port `4173`
 - `npm run lint` - run TypeScript type checking

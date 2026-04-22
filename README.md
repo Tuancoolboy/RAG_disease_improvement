@@ -109,7 +109,7 @@ The output contains:
 The finished RAG pipeline is exposed through:
 
 - FastAPI backend: `backend/main.py`
-- Frontend app: `closer-landing-page/`
+- Frontend app: `frontend/`
 
 The backend handles `/api/ask` and `/api/health`.
 The frontend lets users ask medical questions, inspect chunks, and view source references.
@@ -130,7 +130,7 @@ Backend:
 `python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000`
 
 Frontend:
-`cd closer-landing-page && npm run dev`
+`cd frontend && npm run dev`
 
 Frontend: `http://localhost:3000`  
 Backend docs: `http://localhost:8000/docs`
