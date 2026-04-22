@@ -7,6 +7,8 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 
+from src.config import E5_MAX_TOKENS, E5_MODEL_NAME, E5_PASSAGE_PREFIX
+
 
 def average_pool(last_hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
     last_hidden = last_hidden_states.masked_fill(~attention_mask[..., None].bool(), 0.0)
@@ -18,11 +20,11 @@ class E5MultilingualEmbedder:
 
     def __init__(
         self,
-        model_name: str = "intfloat/multilingual-e5-small",
+        model_name: str = E5_MODEL_NAME,
         *,
         device: str | None = None,
-        max_length: int = 512,
-        passage_prefix: str = "passage: ",
+        max_length: int = E5_MAX_TOKENS,
+        passage_prefix: str = E5_PASSAGE_PREFIX,
     ) -> None:
         self.model_name = model_name
         self.max_length = max_length

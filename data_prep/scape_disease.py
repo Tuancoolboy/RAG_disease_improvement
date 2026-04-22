@@ -9,6 +9,7 @@ import csv
 import json
 import logging
 import re
+import sys
 import time
 import unicodedata
 from pathlib import Path
@@ -19,40 +20,31 @@ from urllib.request import Request, urlopen
 from bs4 import BeautifulSoup, Tag
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = REPO_ROOT / "Data" / "processed"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-DEFAULT_INPUT_CSV = DATA_DIR / "health_disease_links.csv"
-DEFAULT_OUTPUT_JSONL = DATA_DIR / "health_disease_content.jsonl"
-DEFAULT_HTML_DIR = DATA_DIR / "health_html"
-
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0.0.0 Safari/537.36"
+from src.config import (
+    HEALTH_CONTENT_JSONL,
+    HEALTH_HTML_DIR,
+    HEALTH_LINKS_CSV,
+    HEALTH_STOP_MARKERS,
+    SCRAPER_SKIP_EXACT,
+    SCRAPER_USER_AGENT,
 )
+
+DEFAULT_INPUT_CSV = HEALTH_LINKS_CSV
+DEFAULT_OUTPUT_JSONL = HEALTH_CONTENT_JSONL
+DEFAULT_HTML_DIR = HEALTH_HTML_DIR
+
+USER_AGENT = SCRAPER_USER_AGENT
 
 DATE_RE = re.compile(r"\b\d{2}/\d{2}/\d{4}\b")
 
 # Stop when article body reaches non-content sections.
-STOP_MARKERS = {
-    "BÀI VIẾT LIÊN QUAN",
-    "CÓ THỂ BẠN QUAN TÂM",
-    "BÀI VIẾT CÙNG CHỦ ĐỀ",
-    "ĐẶT LỊCH HẸN",
-    "ĐĂNG KÝ NHẬN TIN",
-    "ĐỐI TÁC BẢO HIỂM",
-    "XEM THÊM",
-}
+STOP_MARKERS = HEALTH_STOP_MARKERS
 
 # Short UI / boilerplate texts that are not useful for training.
-SKIP_EXACT = {
-    "Mục lục",
-    "ĐẶT LỊCH HẸN",
-    "XEM HỒ SƠ",
-    "Bệnh viện Đa khoa Tâm Anh",
-    "Bệnh viện Đa khoa Tâm Anh TP.HCM",
-    "Bệnh viện Đa khoa Tâm Anh Hà Nội",
-}
+SKIP_EXACT = SCRAPER_SKIP_EXACT
 
 logging.basicConfig(
     level=logging.INFO,
@@ -196,11 +188,11 @@ def is_reference_tag(tag: Tag) -> bool:
     return tag.find_parent(id="nguon-tham-khao") is not None
 
 
-def extract_body_lines(soup: BeautifulSoup, title_tag: Tag | None) -> list[str]:
+def extract_body_blocks(soup: BeautifulSoup, title_tag: Tag | None) -> list[dict]:
     if title_tag is None:
         return []
 
-    lines: list[str] = []
+    blocks: list[dict] = []
     in_toc = False
     references_heading_added = False
 
@@ -216,7 +208,7 @@ def extract_body_lines(soup: BeautifulSoup, title_tag: Tag | None) -> list[str]:
             break
 
         if is_reference_tag(tag) and not references_heading_added:
-            lines.append("Nguồn tham khảo")
+            blocks.append({"type": "heading", "text": "Nguồn tham khảo"})
             references_heading_added = True
 
         text = clean_text(tag.get_text(" ", strip=True))
@@ -242,17 +234,66 @@ def extract_body_lines(soup: BeautifulSoup, title_tag: Tag | None) -> list[str]:
         if len(text) < 3:
             continue
 
-        if tag.name == "li":
+        if tag.name in {"h2", "h3"}:
+            block_type = "heading"
+        elif tag.name == "li":
+            block_type = "list_item"
             text = "- " + text
+        else:
+            block_type = "paragraph"
 
-        lines.append(text)
+        blocks.append({"type": block_type, "text": text})
 
-    deduped: list[str] = []
-    for line in lines:
-        if not deduped or deduped[-1] != line:
-            deduped.append(line)
+    deduped: list[dict] = []
+    for block in blocks:
+        if not deduped or deduped[-1]["text"] != block["text"]:
+            deduped.append(block)
 
     return deduped
+
+
+def build_sections(body_blocks: list[dict], page_title: str) -> tuple[str, list[dict], list[str]]:
+    intro_parts: list[str] = []
+    sections: list[dict] = []
+    body_lines: list[str] = []
+    current_section: dict | None = None
+
+    for block in body_blocks:
+        text = block["text"]
+        block_type = block["type"]
+        body_lines.append(text)
+
+        if block_type == "heading":
+            current_section = {
+                "section_index": len(sections),
+                "section_title": text,
+                "content_blocks": [],
+            }
+            sections.append(current_section)
+            continue
+
+        if current_section is None:
+            intro_parts.append(text)
+        else:
+            current_section["content_blocks"].append(text)
+
+    normalized_sections: list[dict] = []
+    for section in sections:
+        normalized_sections.append({
+            "section_index": section["section_index"],
+            "section_title": section["section_title"],
+            "content": "\n\n".join(section["content_blocks"]).strip(),
+        })
+
+    intro_text = "\n\n".join(intro_parts).strip()
+    if intro_text:
+        normalized_sections.insert(0, {
+            "section_index": -1,
+            "section_title": page_title,
+            "content": intro_text,
+        })
+
+    return intro_text, normalized_sections, body_lines
 
 
 def extract_record(html: str, row: dict) -> dict:
@@ -264,7 +305,8 @@ def extract_record(html: str, row: dict) -> dict:
     published_date = extract_published_date(full_text)
     doctor_review = extract_doctor_review(full_text)
 
-    body_lines = extract_body_lines(soup, title_tag)
+    body_blocks = extract_body_blocks(soup, title_tag)
+    intro_text, sections, body_lines = build_sections(body_blocks, title)
     body_text = "\n\n".join(body_lines).strip()
 
     # This is the field you will usually use later for continued pretraining.
@@ -279,6 +321,8 @@ def extract_record(html: str, row: dict) -> dict:
         "path": row["path"],
         "published_date": published_date,
         "doctor_review": doctor_review,
+        "intro_text": intro_text,
+        "sections": sections,
         "body_text": body_text,
         "text": "\n\n".join(training_text_parts).strip(),
     }

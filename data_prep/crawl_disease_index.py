@@ -2,6 +2,7 @@
 """Step 1 for the health domain: fetch the A-Z disease index and save detail links."""
 
 import argparse
+import sys
 import time
 import unicodedata
 from pathlib import Path
@@ -13,12 +14,16 @@ from curl_cffi import requests
 from loguru import logger
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = REPO_ROOT / "Data" / "processed"
-HEALTH_AZ_URL = "https://tamanhhospital.vn/benh-hoc-a-z/"
-HEALTH_INDEX_HTML = DATA_DIR / "health_disease_index.html"
-HEALTH_METADATA_CSV = DATA_DIR / "health_disease_links.csv"
-RETRY_MAX = 3
-RETRY_BASE_DELAY = 3.0
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.config import (
+    CRAWLER_RETRY_BASE_DELAY,
+    CRAWLER_RETRY_MAX,
+    HEALTH_AZ_URL,
+    HEALTH_INDEX_HTML,
+    HEALTH_LINKS_CSV,
+)
 
 SESSION = requests.Session()
 SESSION.headers.update({
@@ -33,19 +38,19 @@ def normalize_text(text: str) -> str:
 
 def fetch_html(url: str) -> str:
     """Fetch HTML with a browser-like client and light retry logic."""
-    for attempt in range(1, RETRY_MAX + 1):
+    for attempt in range(1, CRAWLER_RETRY_MAX + 1):
         try:
             resp = SESSION.get(url, timeout=20, impersonate="chrome120")
             resp.raise_for_status()
             return resp.text
         except Exception as exc:
-            if attempt == RETRY_MAX:
+            if attempt == CRAWLER_RETRY_MAX:
                 raise RuntimeError(f"Could not fetch {url}") from exc
-            wait = RETRY_BASE_DELAY * attempt
+            wait = CRAWLER_RETRY_BASE_DELAY * attempt
             logger.warning(
                 "[Retry {}/{}] {} -> {}. Wait {:.0f}s...",
                 attempt,
-                RETRY_MAX,
+                CRAWLER_RETRY_MAX,
                 url,
                 exc,
                 wait,
@@ -133,7 +138,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=HEALTH_METADATA_CSV,
+        default=HEALTH_LINKS_CSV,
         help="CSV output path for extracted disease links",
     )
     parser.add_argument(
