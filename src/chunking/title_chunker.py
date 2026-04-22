@@ -11,7 +11,8 @@ from src.config import TITLE_CHUNK_MAX_HEADING_CHARS, TITLE_CHUNK_MAX_HEADING_WO
 @dataclass(slots=True)
 class SectionChunk:
     section_title: str
-    text: str
+    body_text: str
+    embedding_text: str
     token_count: int
     block_count: int
     section_index: int
@@ -38,6 +39,7 @@ class TitleChunker:
                 add_special_tokens=False,
                 return_attention_mask=False,
                 return_token_type_ids=False,
+                verbose=False,
             )["input_ids"]
         )
 
@@ -66,15 +68,32 @@ class TitleChunker:
         return [
             SectionChunk(
                 section_title=section_title,
-                text=self._build_chunk_text(source_title, section_title, section_blocks),
+                body_text=self._extract_body_text(section_title, section_blocks),
+                embedding_text=self._build_embedding_text(section_title, section_blocks),
                 token_count=self.count_tokens(
-                    self._build_chunk_text(source_title, section_title, section_blocks)
+                    self._build_embedding_text(section_title, section_blocks)
                 ),
                 block_count=len(section_blocks),
                 section_index=section_index,
             )
             for section_index, (section_title, section_blocks) in enumerate(sections)
         ]
+
+    def _extract_body_text(self, section_title: str, section_blocks: list[str]) -> str:
+        if not section_blocks:
+            return ""
+
+        if section_blocks[0] == section_title:
+            return "\n\n".join(section_blocks[1:]).strip()
+
+        return "\n\n".join(section_blocks).strip()
+
+    def _build_embedding_text(self, section_title: str, section_blocks: list[str]) -> str:
+        body_text = self._extract_body_text(section_title, section_blocks)
+        if body_text:
+            return "\n\n".join([section_title.strip(), body_text]).strip()
+
+        return section_title.strip()
 
     def _build_chunk_text(self, source_title: str, section_title: str, section_blocks: list[str]) -> str:
         if not section_blocks:

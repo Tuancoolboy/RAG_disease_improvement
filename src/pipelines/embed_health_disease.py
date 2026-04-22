@@ -79,48 +79,204 @@ def iter_source_rows(path: Path):
             yield line_no, record, body_text
 
 
-def build_chunk_records(input_path: Path, chunker, *, chunk_mode: str, max_tokens: int) -> list[dict]:
+def build_embedding_text(chunk_title: str, chunk_body: str) -> str:
+    chunk_title = (chunk_title or "").strip()
+    chunk_body = (chunk_body or "").strip()
+    if chunk_title and chunk_body:
+        return "\n\n".join([chunk_title, chunk_body]).strip()
+    return chunk_title or chunk_body
+
+
+def count_model_input_tokens(tokenizer, text: str, *, text_prefix: str) -> int:
+    prefixed_text = f"{text_prefix}{text.strip()}"
+    return len(
+        tokenizer(
+            prefixed_text,
+            add_special_tokens=True,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+            verbose=False,
+        )["input_ids"]
+    )
+
+
+def split_text_by_token_window(tokenizer, text: str, *, max_tokens: int, overlap: int) -> list[str]:
+    text = text.strip()
+    if not text:
+        return []
+
+    encoded = tokenizer(
+        text,
+        add_special_tokens=False,
+        return_offsets_mapping=True,
+        return_attention_mask=False,
+        return_token_type_ids=False,
+        verbose=False,
+    )
+    input_ids = encoded["input_ids"]
+    offsets = encoded["offset_mapping"]
+    total_tokens = len(input_ids)
+
+    if total_tokens <= max_tokens:
+        return [text]
+
+    effective_overlap = min(overlap, max(0, max_tokens - 1))
+    step = max(1, max_tokens - effective_overlap)
+    chunks: list[str] = []
+    start = 0
+
+    while start < total_tokens:
+        end = min(start + max_tokens, total_tokens)
+        char_start = offsets[start][0]
+        char_end = offsets[end - 1][1]
+        chunk_text = text[char_start:char_end].strip()
+        if chunk_text:
+            chunks.append(chunk_text)
+        if end >= total_tokens:
+            break
+        start += step
+
+    return chunks
+
+
+def split_section_for_embedding(
+    tokenizer,
+    *,
+    chunk_title: str,
+    chunk_body: str,
+    max_tokens: int,
+    overlap: int,
+    text_prefix: str,
+) -> list[dict]:
+    embedding_text = build_embedding_text(chunk_title, chunk_body)
+    model_token_count = count_model_input_tokens(tokenizer, embedding_text, text_prefix=text_prefix)
+
+    if model_token_count <= max_tokens or not chunk_body:
+        return [{
+            "chunk_title": chunk_title,
+            "chunk_body": chunk_body,
+            "embedding_text": embedding_text,
+            "chunk_token_count": model_token_count,
+            "section_chunk_index": 0,
+            "section_chunk_count": 1,
+        }]
+
+    fixed_prefix_text = f"{text_prefix}{chunk_title.strip()}\n\n"
+    fixed_token_count = len(
+        tokenizer(
+            fixed_prefix_text,
+            add_special_tokens=False,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+            verbose=False,
+        )["input_ids"]
+    )
+    special_token_count = tokenizer.num_special_tokens_to_add(pair=False)
+    available_body_tokens = max_tokens - fixed_token_count - special_token_count
+
+    if available_body_tokens <= 0:
+        return [{
+            "chunk_title": chunk_title,
+            "chunk_body": chunk_body,
+            "embedding_text": embedding_text,
+            "chunk_token_count": model_token_count,
+            "section_chunk_index": 0,
+            "section_chunk_count": 1,
+        }]
+
+    body_chunks = split_text_by_token_window(
+        tokenizer,
+        chunk_body,
+        max_tokens=available_body_tokens,
+        overlap=overlap,
+    )
+    section_chunk_count = len(body_chunks)
+    split_chunks: list[dict] = []
+
+    for idx, body_part in enumerate(body_chunks):
+        split_embedding_text = build_embedding_text(chunk_title, body_part)
+        split_chunks.append({
+            "chunk_title": chunk_title,
+            "chunk_body": body_part,
+            "embedding_text": split_embedding_text,
+            "chunk_token_count": count_model_input_tokens(
+                tokenizer,
+                split_embedding_text,
+                text_prefix=text_prefix,
+            ),
+            "section_chunk_index": idx,
+            "section_chunk_count": section_chunk_count,
+        })
+
+    return split_chunks
+
+
+def build_chunk_records(
+    input_path: Path,
+    chunker,
+    *,
+    chunk_mode: str,
+    max_tokens: int,
+    overlap: int,
+    tokenizer,
+    text_prefix: str,
+) -> list[dict]:
     chunk_records: list[dict] = []
 
     for line_no, record, body_text in iter_source_rows(input_path):
         source_token_count = chunker.count_tokens(body_text)
         if chunk_mode == "title":
             record_sections = record.get("sections") or []
+            raw_chunks: list[dict] = []
             if record_sections:
-                chunks = []
                 source_title = record.get("title", "")
                 for idx, section in enumerate(record_sections):
                     section_title = (section.get("section_title") or source_title).strip()
-                    section_content = (section.get("content") or "").strip()
-                    if section_title == source_title and section_content:
-                        chunk_text = "\n\n".join([source_title, section_content]).strip()
-                    elif section_content:
-                        chunk_text = "\n\n".join([source_title, section_title, section_content]).strip()
-                    else:
-                        chunk_text = "\n\n".join([source_title, section_title]).strip()
-
-                    token_count = chunker.count_tokens(chunk_text)
-                    chunks.append({
-                        "chunk_id": f"{record['slug']}::section::{idx}",
-                        "chunk_index": idx,
-                        "section_title": section_title,
+                    chunk_body = (section.get("content") or "").strip()
+                    raw_chunks.append({
+                        "section_index": idx,
+                        "chunk_title": section_title,
+                        "chunk_body": chunk_body,
                         "section_block_count": None,
-                        "chunk_token_count": token_count,
-                        "text": chunk_text,
                     })
             else:
-                chunks = []
                 for chunk in chunker.split(record.get("title", ""), body_text):
-                    chunks.append({
-                        "chunk_id": f"{record['slug']}::section::{chunk.section_index}",
-                        "chunk_index": chunk.section_index,
-                        "section_title": chunk.section_title,
+                    raw_chunks.append({
+                        "section_index": chunk.section_index,
+                        "chunk_title": chunk.section_title,
+                        "chunk_body": chunk.body_text,
                         "section_block_count": chunk.block_count,
-                        "chunk_token_count": chunk.token_count,
-                        "text": chunk.text,
                     })
 
-            for chunk in chunks:
+            chunks: list[dict] = []
+            for raw_chunk in raw_chunks:
+                split_chunks = split_section_for_embedding(
+                    tokenizer,
+                    chunk_title=raw_chunk["chunk_title"],
+                    chunk_body=raw_chunk["chunk_body"],
+                    max_tokens=max_tokens,
+                    overlap=overlap,
+                    text_prefix=text_prefix,
+                )
+                for split_chunk in split_chunks:
+                    chunks.append({
+                        "chunk_id": (
+                            f"{record['slug']}::section::{raw_chunk['section_index']}::part::"
+                            f"{split_chunk['section_chunk_index']}"
+                            if split_chunk["section_chunk_count"] > 1
+                            else f"{record['slug']}::section::{raw_chunk['section_index']}"
+                        ),
+                        "section_index": raw_chunk["section_index"],
+                        "chunk_title": split_chunk["chunk_title"],
+                        "chunk_body": split_chunk["chunk_body"],
+                        "section_block_count": raw_chunk["section_block_count"],
+                        "chunk_token_count": split_chunk["chunk_token_count"],
+                        "embedding_text": split_chunk["embedding_text"],
+                        "section_chunk_index": split_chunk["section_chunk_index"],
+                        "section_chunk_count": split_chunk["section_chunk_count"],
+                    })
+
+            for chunk_index, chunk in enumerate(chunks):
                 chunk_records.append(
                     {
                         "chunk_id": chunk["chunk_id"],
@@ -131,21 +287,34 @@ def build_chunk_records(input_path: Path, chunker, *, chunk_mode: str, max_token
                         "source_path": record.get("path", ""),
                         "published_date": record.get("published_date", ""),
                         "doctor_review": record.get("doctor_review", ""),
-                        "chunk_index": chunk["chunk_index"],
+                        "chunk_index": chunk_index,
                         "chunk_count": len(chunks),
-                        "section_title": chunk["section_title"],
+                        "section_index": chunk["section_index"],
+                        "section_title": chunk["chunk_title"],
+                        "section_chunk_index": chunk["section_chunk_index"],
+                        "section_chunk_count": chunk["section_chunk_count"],
+                        "chunk_title": chunk["chunk_title"],
+                        "chunk_body": chunk["chunk_body"],
                         "section_block_count": chunk["section_block_count"],
                         "source_body_token_count": source_token_count,
                         "chunk_token_count": chunk["chunk_token_count"],
                         "chunk_mode": chunk_mode,
                         "was_chunked": len(chunks) > 1,
                         "exceeds_embedding_limit": chunk["chunk_token_count"] > max_tokens,
-                        "text": chunk["text"],
+                        "text": chunk["chunk_body"],
+                        "embedding_text": chunk["embedding_text"],
                     }
                 )
         else:
-            chunks = chunker.split(body_text)
-            for chunk_index, chunk in enumerate(chunks):
+            split_chunks = split_section_for_embedding(
+                tokenizer,
+                chunk_title=record.get("title", ""),
+                chunk_body=body_text,
+                max_tokens=max_tokens,
+                overlap=overlap,
+                text_prefix=text_prefix,
+            )
+            for chunk_index, chunk in enumerate(split_chunks):
                 chunk_records.append(
                     {
                         "chunk_id": f"{record['slug']}::chunk::{chunk_index}",
@@ -157,13 +326,20 @@ def build_chunk_records(input_path: Path, chunker, *, chunk_mode: str, max_token
                         "published_date": record.get("published_date", ""),
                         "doctor_review": record.get("doctor_review", ""),
                         "chunk_index": chunk_index,
-                        "chunk_count": len(chunks),
+                        "chunk_count": len(split_chunks),
+                        "section_index": 0,
                         "source_body_token_count": source_token_count,
-                        "chunk_token_count": chunk.token_count,
+                        "chunk_token_count": chunk["chunk_token_count"],
                         "chunk_mode": chunk_mode,
-                        "was_chunked": len(chunks) > 1,
-                        "exceeds_embedding_limit": chunk.token_count > max_tokens,
-                        "text": chunk.text,
+                        "was_chunked": len(split_chunks) > 1,
+                        "exceeds_embedding_limit": chunk["chunk_token_count"] > max_tokens,
+                        "section_title": chunk["chunk_title"],
+                        "section_chunk_index": chunk["section_chunk_index"],
+                        "section_chunk_count": chunk["section_chunk_count"],
+                        "chunk_title": chunk["chunk_title"],
+                        "chunk_body": chunk["chunk_body"],
+                        "text": chunk["chunk_body"],
+                        "embedding_text": chunk["embedding_text"],
                     }
                 )
 
@@ -201,11 +377,14 @@ def main() -> None:
         chunker,
         chunk_mode=args.chunk_mode,
         max_tokens=args.max_tokens,
+        overlap=args.overlap,
+        tokenizer=embedder.tokenizer,
+        text_prefix=embedder.passage_prefix,
     )
     if not chunk_records:
         raise RuntimeError("No body_text rows were found to embed.")
 
-    texts = [record["text"] for record in chunk_records]
+    texts = [record["embedding_text"] for record in chunk_records]
     embeddings = embedder.embed_passages(texts, batch_size=args.batch_size)
 
     args.embeddings_output.parent.mkdir(parents=True, exist_ok=True)

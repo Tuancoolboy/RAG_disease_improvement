@@ -1,10 +1,70 @@
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-DATA_ROOT = PROJECT_ROOT / "Data"
+def _is_colab_runtime() -> bool:
+    return "google.colab" in sys.modules or bool(os.getenv("COLAB_RELEASE_TAG"))
+
+
+def _looks_like_project_root(path: Path) -> bool:
+    return (path / "src").exists() and (path / "data_prep").exists()
+
+
+def _resolve_project_root() -> Path:
+    env_project_root = os.getenv("RAG_PROJECT_ROOT")
+    if env_project_root:
+        return Path(env_project_root).expanduser().resolve()
+
+    file_based_root = Path(__file__).resolve().parent.parent.parent
+    if _looks_like_project_root(file_based_root):
+        return file_based_root
+
+    if _is_colab_runtime():
+        colab_candidates = [
+            Path.cwd(),
+            Path("/content/Rag"),
+            Path("/content/drive/MyDrive/Rag"),
+            Path("/content/drive/MyDrive/RAG_disease_improvement"),
+        ]
+        for candidate in colab_candidates:
+            candidate = candidate.expanduser().resolve()
+            if _looks_like_project_root(candidate):
+                return candidate
+
+    return file_based_root
+
+
+def _resolve_data_root(project_root: Path) -> Path:
+    env_data_root = os.getenv("RAG_DATA_ROOT")
+    if env_data_root:
+        return Path(env_data_root).expanduser().resolve()
+
+    default_data_root = project_root / "Data"
+    if default_data_root.exists() or not _is_colab_runtime():
+        return default_data_root
+
+    colab_data_candidates = [
+        project_root / "Data",
+        Path("/content/Data"),
+        Path("/content/drive/MyDrive/Data"),
+        Path("/content/drive/MyDrive/Rag/Data"),
+        Path("/content/drive/MyDrive/RAG_disease_improvement/Data"),
+    ]
+    for candidate in colab_data_candidates:
+        candidate = candidate.expanduser().resolve()
+        if candidate.exists():
+            return candidate
+
+    return default_data_root
+
+
+IS_COLAB = _is_colab_runtime()
+PROJECT_ROOT = _resolve_project_root()
+DATA_ROOT = _resolve_data_root(PROJECT_ROOT)
+
 DATA_PROCESSED_DIR = DATA_ROOT / "processed"
 VECTORSTORE_DIR = DATA_ROOT / "vectorstore"
 

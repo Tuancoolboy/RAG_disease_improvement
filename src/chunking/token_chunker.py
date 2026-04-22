@@ -34,6 +34,7 @@ class TokenChunker:
             add_special_tokens=False,
             return_attention_mask=False,
             return_token_type_ids=False,
+            verbose=False,
         )["input_ids"]
         special_tokens = self.tokenizer.num_special_tokens_to_add(pair=False)
         self.max_body_tokens = max(1, max_input_tokens - len(prefix_tokens) - special_tokens)
@@ -50,6 +51,7 @@ class TokenChunker:
                 add_special_tokens=False,
                 return_attention_mask=False,
                 return_token_type_ids=False,
+                verbose=False,
             )["input_ids"]
         )
 
@@ -64,6 +66,7 @@ class TokenChunker:
             return_offsets_mapping=True,
             return_attention_mask=False,
             return_token_type_ids=False,
+            verbose=False,
         )
         input_ids = encoded["input_ids"]
         offsets = encoded["offset_mapping"]
