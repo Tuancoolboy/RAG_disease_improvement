@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 
-from src.config import E5_MAX_TOKENS, E5_MODEL_NAME, E5_PASSAGE_PREFIX
+from src.config import E5_MAX_TOKENS, E5_MODEL_NAME, E5_PASSAGE_PREFIX, E5_QUERY_PREFIX
 
 
 def average_pool(last_hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
@@ -25,10 +25,12 @@ class E5MultilingualEmbedder:
         device: str | None = None,
         max_length: int = E5_MAX_TOKENS,
         passage_prefix: str = E5_PASSAGE_PREFIX,
+        query_prefix: str = E5_QUERY_PREFIX,
     ) -> None:
         self.model_name = model_name
         self.max_length = max_length
         self.passage_prefix = passage_prefix
+        self.query_prefix = query_prefix
         self.device = device or self._pick_device()
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -44,11 +46,20 @@ class E5MultilingualEmbedder:
         return "cpu"
 
     def embed_passages(self, texts: Iterable[str], *, batch_size: int = 32) -> np.ndarray:
+        return self._embed_texts(texts, prefix=self.passage_prefix, batch_size=batch_size)
+
+    def embed_queries(self, texts: Iterable[str], *, batch_size: int = 32) -> np.ndarray:
+        return self._embed_texts(texts, prefix=self.query_prefix, batch_size=batch_size)
+
+    def embed_query(self, text: str) -> np.ndarray:
+        return self.embed_queries([text], batch_size=1)[0]
+
+    def _embed_texts(self, texts: Iterable[str], *, prefix: str, batch_size: int) -> np.ndarray:
         all_embeddings: list[np.ndarray] = []
         batch: list[str] = []
 
         for text in texts:
-            batch.append(f"{self.passage_prefix}{text.strip()}")
+            batch.append(f"{prefix}{text.strip()}")
             if len(batch) >= batch_size:
                 all_embeddings.append(self._embed_batch(batch))
                 batch = []

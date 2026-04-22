@@ -61,6 +61,21 @@ def _resolve_data_root(project_root: Path) -> Path:
     return default_data_root
 
 
+def _get_int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        return int(raw_value)
+    except ValueError:
+        return default
+
+
+def _get_csv_env(name: str, default: str) -> list[str]:
+    raw_value = os.getenv(name, default)
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
 IS_COLAB = _is_colab_runtime()
 PROJECT_ROOT = _resolve_project_root()
 DATA_ROOT = _resolve_data_root(PROJECT_ROOT)
@@ -111,6 +126,30 @@ E5_MAX_TOKENS = 512
 E5_OVERLAP = 64
 E5_BATCH_SIZE = 32
 E5_PASSAGE_PREFIX = "passage: "
+E5_QUERY_PREFIX = "query: "
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash").strip()
+GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+GEMINI_TEMPERATURE = 0.2
+GEMINI_API_TIMEOUT = 60
+GEMINI_RETRY_MAX_ATTEMPTS = 4
+GEMINI_RETRY_BASE_DELAY = 2.0
+
+BACKEND_HOST = os.getenv("RAG_BACKEND_HOST", "0.0.0.0").strip() or "0.0.0.0"
+BACKEND_PORT = _get_int_env("RAG_BACKEND_PORT", 8000)
+BACKEND_CORS_ORIGINS = _get_csv_env(
+    "RAG_BACKEND_CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000",
+)
+
+HYBRID_VECTOR_TOP_K = 20
+HYBRID_BM25_TOP_K = 20
+HYBRID_RERANK_TOP_K = 8
+
+CROSS_ENCODER_MODEL_NAME = os.getenv("CROSS_ENCODER_MODEL_NAME", "BAAI/bge-reranker-v2-m3").strip()
+CROSS_ENCODER_MAX_TOKENS = 512
+CROSS_ENCODER_BATCH_SIZE = 8
 
 TITLE_CHUNK_MAX_HEADING_WORDS = 24
 TITLE_CHUNK_MAX_HEADING_CHARS = 160

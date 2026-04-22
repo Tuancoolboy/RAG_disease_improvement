@@ -1,0 +1,159 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital,wght@0,400;1,400&family=Manrope:wght@200..800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-instrument-serif: "Instrument Serif", serif;
+  --font-manrope: "Manrope", sans-serif;
+  --font-instrument-sans: "Instrument Sans", sans-serif;
+  
+  --color-brand-dark: #212121;
+  
+  --animate-fade-in: fade-in 0.5s ease-out forwards;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: #f8f7f4;
+    color: #212121;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@layer utilities {
+  .text-gradient-radial {
+    background: radial-gradient(circle at center, #368CFB 0%, #5CAEFE 30%, #85BDE0 47.5%, #AECDC2 65%, #D6DCA3 82.5%, #FFEB85 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: inline-block;
+  }
+  
+  .subheadline-gradient {
+    background: linear-gradient(to bottom, rgba(37,44,50,0.7) 0%, rgba(55,65,74,0.7) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .nav-text-gradient {
+    background: linear-gradient(to bottom, rgba(37,44,50,0.7), rgba(55,65,74,0.7));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .copy-shadow {
+    text-shadow: 0 8px 24px rgba(255, 255, 255, 0.35);
+  }
+
+  .soft-panel {
+    border-radius: 28px;
+    border: 1px solid rgba(20, 20, 20, 0.08);
+    background: rgba(255, 255, 255, 0.42);
+    box-shadow: 0 20px 54px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(8px);
+    padding: 1.5rem;
+  }
+
+  .field-shell {
+    border: 1px solid rgba(20, 20, 20, 0.08);
+    background: rgba(255, 255, 255, 0.56);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
+    backdrop-filter: blur(6px);
+  }
+
+  .field-shell--compact {
+    border-radius: 28px;
+    padding: 1rem 1.1rem;
+  }
+
+  .field-shell--semantic {
+    border-color: rgba(73, 136, 196, 0.22);
+    background: linear-gradient(180deg, rgba(142, 205, 255, 0.28), rgba(255, 255, 255, 0.62));
+  }
+
+  .field-shell--keyword {
+    border-color: rgba(201, 144, 65, 0.22);
+    background: linear-gradient(180deg, rgba(255, 225, 168, 0.32), rgba(255, 255, 255, 0.62));
+  }
+
+  .field-shell textarea,
+  .field-shell select,
+  .field-shell input {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #212121;
+    outline: 0;
+  }
+
+  .field-shell textarea::placeholder {
+    color: rgba(33, 33, 33, 0.4);
+  }
+
+  .field-shell option {
+    color: #212121;
+    background: #ffffff;
+  }
+
+  .status-pill {
+    border-radius: 999px;
+    border: 1px solid rgba(20, 20, 20, 0.08);
+    background: rgba(255, 255, 255, 0.64);
+    padding: 0.55rem 0.95rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(33, 33, 33, 0.72);
+    backdrop-filter: blur(6px);
+  }
+
+  .scroll-rectangle {
+    border-radius: 24px;
+    border: 1px solid rgba(20, 20, 20, 0.08);
+    background: rgba(255, 255, 255, 0.42);
+    padding: 0.75rem;
+  }
+
+  .scroll-rectangle::-webkit-scrollbar,
+  .field-shell textarea::-webkit-scrollbar,
+  .soft-panel p::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .scroll-rectangle::-webkit-scrollbar-track,
+  .field-shell textarea::-webkit-scrollbar-track,
+  .soft-panel p::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.42);
+    border-radius: 999px;
+  }
+
+  .scroll-rectangle::-webkit-scrollbar-thumb,
+  .field-shell textarea::-webkit-scrollbar-thumb,
+  .soft-panel p::-webkit-scrollbar-thumb {
+    background: rgba(33, 33, 33, 0.22);
+    border-radius: 999px;
+  }
+
+  .scroll-rectangle::-webkit-scrollbar-thumb:hover,
+  .field-shell textarea::-webkit-scrollbar-thumb:hover,
+  .soft-panel p::-webkit-scrollbar-thumb:hover {
+    background: rgba(33, 33, 33, 0.34);
+  }
+}

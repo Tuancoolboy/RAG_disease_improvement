@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from transformers import PreTrainedTokenizerBase
 
-from src.config import TITLE_CHUNK_MAX_HEADING_CHARS, TITLE_CHUNK_MAX_HEADING_WORDS
+try:
+    from src.config import TITLE_CHUNK_MAX_HEADING_CHARS, TITLE_CHUNK_MAX_HEADING_WORDS
+except ModuleNotFoundError:
+    REPO_ROOT = Path(__file__).resolve().parents[2]
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from src.config import TITLE_CHUNK_MAX_HEADING_CHARS, TITLE_CHUNK_MAX_HEADING_WORDS
 
 
 @dataclass(slots=True)

@@ -1,0 +1,6 @@
+beautifulsoup4
+fastapi
+numpy
+torch
+transformers
+uvicorn[standard]
