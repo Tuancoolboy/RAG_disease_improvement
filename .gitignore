@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+Data/processed/*
+!Data/processed/.gitkeep
+
+Data/vectorstore/*
+!Data/vectorstore/.gitkeep
+
+*.pdf
