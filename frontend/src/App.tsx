@@ -31,6 +31,11 @@ const CHUNK_OPTIONS = [3, 5, 8, 10];
 const CANDIDATE_OPTIONS = [10, 20, 30, 40];
 
 function getApiBaseUrl(): string {
+  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/$/, '');
+  }
+
   if (typeof window === 'undefined') {
     return 'http://localhost:8000';
   }
