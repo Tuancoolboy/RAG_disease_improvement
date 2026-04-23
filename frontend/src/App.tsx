@@ -30,7 +30,7 @@ interface HealthResponse {
   has_gemini_api_key?: boolean;
 }
 
-const DEFAULT_QUERY = 'Triệu chứng viêm phổi ở người lớn là gì và khi nào nên đi khám?';
+const DEFAULT_QUERY = 'Viêm phổi là gì?';
 const GITHUB_REPO_URL = 'https://github.com/Tuancoolboy/RAG_disease_improvement';
 const CHUNK_OPTIONS = [3, 5, 8, 10];
 const CANDIDATE_OPTIONS = [10, 20, 30, 40];
