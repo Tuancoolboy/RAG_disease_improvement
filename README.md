@@ -12,6 +12,8 @@ suggested_hardware: cpu-basic
 
 A Vietnamese medical RAG project that builds a disease-information pipeline from raw web pages to grounded answers with source references.
 
+![disease-rag background](image/background.png)
+
 ## What This Project Builds
 
 This repository creates a complete RAG workflow:
