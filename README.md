@@ -1,3 +1,13 @@
+---
+title: Disease RAG
+emoji: 🩺
+colorFrom: blue
+colorTo: yellow
+sdk: docker
+app_port: 7860
+suggested_hardware: cpu-basic
+---
+
 # RAG Disease Improvement
 
 A Vietnamese medical RAG project that builds a disease-information pipeline from raw web pages to grounded answers with source references.
@@ -147,3 +157,26 @@ Render:
 - Optional for preview deployments: `RAG_BACKEND_CORS_ORIGIN_REGEX=https://.*\.vercel\.app`
 
 Without `VITE_API_BASE_URL`, the frontend now uses `localhost:8000` only in local dev. In production it calls the same origin, so a separate Render backend still needs `VITE_API_BASE_URL`.
+
+## Hugging Face Spaces
+
+This repository can now run as a single Docker Space:
+
+- FastAPI serves `/api/health` and `/api/ask`
+- the built Vite frontend is served from the same origin
+- no Vercel or Render split is required, so there is no CORS setup
+
+Required for the Space:
+
+- SDK: `Docker`
+- App port: `7860`
+- Secret: `GEMINI_API_KEY`
+
+Runtime files needed in the Space repository:
+
+- `Data/vectorstore/health_disease_e5_small_embeddings.npy`
+- `Data/vectorstore/health_disease_e5_small_metadata.jsonl`
+
+If those files are still ignored locally, add them explicitly when pushing to the Space repository:
+
+`git add -f Data/vectorstore/health_disease_e5_small_embeddings.npy Data/vectorstore/health_disease_e5_small_metadata.jsonl`

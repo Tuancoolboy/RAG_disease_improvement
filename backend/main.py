@@ -5,9 +5,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+FRONTEND_DIST_DIR = REPO_ROOT / "frontend" / "dist"
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -39,14 +41,15 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-def root() -> dict:
-    return {
-        "status": "ok",
-        "service": "Disease RAG API",
-        "health": "/api/health",
-        "docs": "/docs",
-    }
+if not (FRONTEND_DIST_DIR / "index.html").exists():
+    @app.get("/")
+    def root() -> dict:
+        return {
+            "status": "ok",
+            "service": "Disease RAG API",
+            "health": "/api/health",
+            "docs": "/docs",
+        }
 
 
 @app.get("/api/health")
@@ -69,6 +72,12 @@ def ask(request: AskRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+if (FRONTEND_DIST_DIR / "index.html").exists():
+    # In production deployments like Hugging Face Spaces, serve the built Vite app
+    # from the same origin as the FastAPI API to avoid any cross-origin setup.
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST_DIR, html=True), name="frontend")
 
 
 if __name__ == "__main__":

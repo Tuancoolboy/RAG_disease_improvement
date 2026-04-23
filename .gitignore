@@ -7,5 +7,7 @@ Data/processed/*
 
 Data/vectorstore/*
 !Data/vectorstore/.gitkeep
+!Data/vectorstore/health_disease_e5_small_embeddings.npy
+!Data/vectorstore/health_disease_e5_small_metadata.jsonl
 
 *.pdf
