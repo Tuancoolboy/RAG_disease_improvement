@@ -1,5 +1,5 @@
 ---
-title: Disease RAG
+title: disease-rag
 emoji: 🩺
 colorFrom: blue
 colorTo: yellow

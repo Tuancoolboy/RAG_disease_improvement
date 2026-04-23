@@ -235,7 +235,7 @@ export default function App() {
               </svg>
             </div>
             <div>
-              <p className="font-instrument-serif text-[28px] leading-none text-brand-dark">disease rag</p>
+              <p className="font-instrument-serif text-[28px] leading-none text-brand-dark">disease-rag</p>
               <p className="mt-1 text-sm text-brand-dark/70">Tìm và tóm tắt thông tin bệnh học dễ hiểu</p>
             </div>
           </div>

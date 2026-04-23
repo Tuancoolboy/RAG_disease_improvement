@@ -1,5 +1,5 @@
 {
-  "name": "Closer Landing Page",
-  "description": "A high-performance landing page hero section with HLS video background and polished typography.",
+  "name": "disease-rag",
+  "description": "Vietnamese medical RAG app for retrieving disease information with source-backed answers.",
   "requestFramePermissions": []
 }
