@@ -13,7 +13,7 @@ FRONTEND_DIST_DIR = REPO_ROOT / "frontend" / "dist"
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.config import BACKEND_CORS_ORIGIN_REGEX, BACKEND_CORS_ORIGINS, BACKEND_HOST, BACKEND_PORT  # noqa: E402
+from src.config import BACKEND_CORS_ORIGIN_REGEX, BACKEND_CORS_ORIGINS, BACKEND_HOST, BACKEND_PORT, GEMINI_API_KEY  # noqa: E402
 from src.services import get_default_rag_service  # noqa: E402
 
 
@@ -54,7 +54,7 @@ if not (FRONTEND_DIST_DIR / "index.html").exists():
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "has_gemini_api_key": bool(GEMINI_API_KEY)}
 
 
 @app.post("/api/ask")

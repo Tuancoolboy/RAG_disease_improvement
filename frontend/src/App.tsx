@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { VideoBackground } from './components/VideoBackground';
 
@@ -25,10 +25,16 @@ interface AskResponse {
   sources: SourceResult[];
 }
 
+interface HealthResponse {
+  status: string;
+  has_gemini_api_key?: boolean;
+}
+
 const DEFAULT_QUERY = 'Triệu chứng viêm phổi ở người lớn là gì và khi nào nên đi khám?';
 const GITHUB_REPO_URL = 'https://github.com/Tuancoolboy/RAG_disease_improvement';
 const CHUNK_OPTIONS = [3, 5, 8, 10];
 const CANDIDATE_OPTIONS = [10, 20, 30, 40];
+const MISSING_GEMINI_WARNING = 'Backend chưa có GEMINI_API_KEY, nên hiện tại chỉ trả về chunks và nguồn tham khảo.';
 
 function getApiBaseUrl(): string {
   const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -79,6 +85,41 @@ export default function App() {
   const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [backendHasGeminiKey, setBackendHasGeminiKey] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadHealth(): Promise<void> {
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/api/health`);
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json().catch(() => null)) as HealthResponse | null;
+        if (cancelled || !payload || payload.status !== 'ok') {
+          return;
+        }
+
+        const hasGeminiKey = payload.has_gemini_api_key !== false;
+        setBackendHasGeminiKey(hasGeminiKey);
+
+        if (!hasGeminiKey) {
+          setIncludeAnswer(false);
+          setWarning(MISSING_GEMINI_WARNING);
+        }
+      } catch {
+        // Ignore health probe failures and let the first submit surface any real backend error.
+      }
+    }
+
+    void loadHealth();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const sourceOptions: Array<{ key: string; label: string }> = [];
   const chunkOptions: Array<{ id: string; label: string }> = [];
@@ -136,18 +177,21 @@ export default function App() {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    setWarning(null);
+    setWarning(backendHasGeminiKey === false ? MISSING_GEMINI_WARNING : null);
 
     try {
       let response: AskResponse;
+      const shouldIncludeAnswer = includeAnswer && backendHasGeminiKey !== false;
 
       try {
-        response = await requestAsk(includeAnswer);
+        response = await requestAsk(shouldIncludeAnswer);
       } catch (submitError) {
         const message = submitError instanceof Error ? submitError.message : 'Không gọi được backend.';
-        if (includeAnswer && message.includes('Missing Gemini API key')) {
+        if (shouldIncludeAnswer && message.includes('Missing Gemini API key')) {
+          setBackendHasGeminiKey(false);
+          setIncludeAnswer(false);
           response = await requestAsk(false);
-          setWarning('Backend chưa có GEMINI_API_KEY, nên hiện tại chỉ trả về chunks và nguồn tham khảo.');
+          setWarning(MISSING_GEMINI_WARNING);
         } else {
           throw submitError;
         }
@@ -308,9 +352,12 @@ export default function App() {
                 type="checkbox"
                 checked={includeAnswer}
                 onChange={(event) => setIncludeAnswer(event.target.checked)}
+                disabled={backendHasGeminiKey === false}
                 className="h-4 w-4 rounded border-black/20 bg-white/50 accent-[#212121]"
               />
-              Sinh câu trả lời AI nếu backend có `GEMINI_API_KEY`
+              {backendHasGeminiKey === false
+                ? 'Sinh câu trả lời AI đang tắt vì backend chưa có `GEMINI_API_KEY`'
+                : 'Sinh câu trả lời AI nếu backend có `GEMINI_API_KEY`'}
             </label>
           </motion.form>
 
