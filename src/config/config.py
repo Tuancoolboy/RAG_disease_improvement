@@ -142,6 +142,7 @@ BACKEND_CORS_ORIGINS = _get_csv_env(
     "RAG_BACKEND_CORS_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000",
 )
+BACKEND_CORS_ORIGIN_REGEX = os.getenv("RAG_BACKEND_CORS_ORIGIN_REGEX", "").strip() or None
 
 HYBRID_VECTOR_TOP_K = 20
 HYBRID_BM25_TOP_K = 20

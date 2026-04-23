@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.config import BACKEND_CORS_ORIGINS, BACKEND_HOST, BACKEND_PORT  # noqa: E402
+from src.config import BACKEND_CORS_ORIGIN_REGEX, BACKEND_CORS_ORIGINS, BACKEND_HOST, BACKEND_PORT  # noqa: E402
 from src.services import get_default_rag_service  # noqa: E402
 
 
@@ -32,6 +32,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=BACKEND_CORS_ORIGINS or ["*"],
+    allow_origin_regex=BACKEND_CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

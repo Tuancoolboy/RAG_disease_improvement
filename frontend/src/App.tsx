@@ -36,12 +36,20 @@ function getApiBaseUrl(): string {
     return configuredBaseUrl.replace(/\/$/, '');
   }
 
-  if (typeof window === 'undefined') {
-    return 'http://localhost:8000';
+  if (import.meta.env.DEV) {
+    if (typeof window === 'undefined') {
+      return 'http://localhost:8000';
+    }
+
+    const host = window.location.hostname || 'localhost';
+    return `${window.location.protocol}//${host}:8000`;
   }
 
-  const host = window.location.hostname || 'localhost';
-  return `${window.location.protocol}//${host}:8000`;
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return window.location.origin;
 }
 
 function getErrorMessage(payload: unknown, fallbackStatus: number): string {

@@ -134,3 +134,16 @@ Frontend:
 
 Frontend: `http://localhost:3000`  
 Backend docs: `http://localhost:8000/docs`
+
+## Deploy Notes
+
+If the frontend is deployed on Vercel and the API is deployed on Render, set these environment variables:
+
+Vercel:
+- `VITE_API_BASE_URL=https://your-render-service.onrender.com`
+
+Render:
+- `RAG_BACKEND_CORS_ORIGINS=https://your-vercel-site.vercel.app`
+- Optional for preview deployments: `RAG_BACKEND_CORS_ORIGIN_REGEX=https://.*\.vercel\.app`
+
+Without `VITE_API_BASE_URL`, the frontend now uses `localhost:8000` only in local dev. In production it calls the same origin, so a separate Render backend still needs `VITE_API_BASE_URL`.

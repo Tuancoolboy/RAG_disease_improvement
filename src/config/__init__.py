@@ -1,6 +1,7 @@
 """Shared project configuration exports."""
 
 from .config import (
+    BACKEND_CORS_ORIGIN_REGEX,
     BACKEND_CORS_ORIGINS,
     BACKEND_HOST,
     BACKEND_PORT,
@@ -49,6 +50,7 @@ __all__ = [
     "CROSS_ENCODER_BATCH_SIZE",
     "CROSS_ENCODER_MAX_TOKENS",
     "CROSS_ENCODER_MODEL_NAME",
+    "BACKEND_CORS_ORIGIN_REGEX",
     "BACKEND_CORS_ORIGINS",
     "BACKEND_HOST",
     "BACKEND_PORT",
